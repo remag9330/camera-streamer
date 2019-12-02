@@ -15,8 +15,8 @@
         <div class="container">
             <div class="row">
                 % for camera in cameras:
-                    <div class="col-sm-12 col-md-6">
-                        <div>Camera {{camera["id"]}}</div>
+                    <div class="camera col-sm-12 col-md-6">
+                        <div>Camera {{camera.id}}</div>
                         <img class="frame" style="width: 320px; height: 240px;">
                     </div>
                 % end
