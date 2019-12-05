@@ -1,47 +1,5 @@
-import time
-import threading
-
 import cv2
-
-CAMERA_WIDTH = 320
-CAMERA_HEIGHT = 240
-CAMERA_FPS = 10
-
-cameras = {}
-
-def _create_cameras():
-    cameras = {}
-
-    for i in range(10):
-        test = cv2.VideoCapture(i)
-        success, _ = test.read()
-        test.release()
-
-        if success:
-            cameras[i] = Camera(i, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
-
-    return cameras
-
-_background_reader_running = True
-def _camera_background_reader():
-    while _background_reader_running:
-        start = time.time()
-
-        for camera in cameras.values():
-            camera.update_frame()
-        
-        end = time.time()
-        total = end - start
-        sleep_time = (1 / CAMERA_FPS) - total
-        if sleep_time > 0:
-            time.sleep(sleep_time)
-
-_background_reader_thread = threading.Thread(target=_camera_background_reader, daemon=True)
-_background_reader_thread.start()
-
-def stop_background_reader():
-    _background_reader_running = False
-    _background_reader_thread.join()
+import numpy as np
 
 class Camera:
     def __init__(self, camera_id, width, height, fps):
@@ -51,9 +9,17 @@ class Camera:
         self.fps = fps
 
         self.camera = cv2.VideoCapture(self.camera_id)
-        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.camera.set(cv2.CAP_PROP_FPS, self.fps)
+
+        if self.fps > 0:
+            self.camera.set(cv2.CAP_PROP_FPS, self.fps)
+
+        if self.width > 0:
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+
+        if self.height > 0:
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        
+        print(f"camera {self.camera_id} - width: {self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)}, height: {self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)}, fps: {self.camera.get(cv2.CAP_PROP_FPS)}")
 
         self.update_frame()
     
@@ -61,5 +27,33 @@ class Camera:
         success, data = self.camera.read()
         self.current_frame = data if success else None
 
+    def release(self):
+        self.camera.release()
 
-cameras = _create_cameras()
+class MockCamera:
+    def __init__(self, camera_id, width, height, fps):
+        self.camera_id = camera_id
+        self.width = width
+        self.height = height
+        self.fps = fps
+
+        self.blank_frame = np.zeros((height, width, 3), np.uint8)
+        self.frame_count = 0
+
+        self.update_frame()
+
+    def update_frame(self):
+        new_frame = np.array(self.blank_frame)
+        self.frame_count += 1
+        
+        cv2.putText(
+            new_frame,
+            str(self.camera_id) + " - " + str(self.frame_count),
+            (20, 50),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1,
+            (255, 255, 255, 255),
+            3
+        )
+
+        self.current_frame = new_frame

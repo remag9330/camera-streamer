@@ -38,6 +38,25 @@ window.addEventListener("load", () => {
         localStorage.setItem("fps", newFps);
         emitter.emit("fpsChanged", { fps: newFps });
     });
+
+    const toggleRecording = document.getElementById("toggleRecording");
+    if (!(toggleRecording instanceof HTMLButtonElement)) {
+        throw new Error("toggleRedcording is not a button!");
+    }
+
+    toggleRecording.addEventListener("click", async e => {
+        const isStarting = toggleRecording.innerHTML.toUpperCase().indexOf("START") >= 0;
+
+        toggleRecording.disabled = true;
+        const result = await fetch("recording/" + (isStarting ? "start" : "stop"));
+        toggleRecording.disabled = false;
+
+        if (!result.ok) {
+            alert("Error starting recording");
+        } else {
+            toggleRecording.innerHTML = (isStarting ? "Stop" : "Start") + " Recording";
+        }
+    });
 });
 
 class Emitter {

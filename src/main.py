@@ -5,7 +5,7 @@ from bottle import route, view, static_file, request, run
 
 import cv2
 
-import camera
+import camera_manager
 
 # Ensure the current directory is the file path of the main file - helps make code simpler
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
@@ -17,7 +17,10 @@ def main():
         def __init__(self, id):
             self.id = id
 
-    return { "cameras": [CameraModel(id) for id in camera.cameras.keys()] }
+    return {
+        "cameras": [CameraModel(id) for id in camera_manager.cameras.keys()],
+        "isRecording": camera_manager.is_recording()
+    }
 
 @route("/frame/<id:int>")
 def frame(id):
@@ -33,7 +36,7 @@ def frame(id):
     if format not in mime_types:
         format = ".jpg"
 
-    frame = camera.cameras[id].current_frame
+    frame = camera_manager.cameras[id].current_frame
     if frame is not None:
         success, buf = cv2.imencode(format, frame)
         if success:
@@ -44,8 +47,25 @@ def frame(id):
         "image": None
     }
 
+@route("/recording/start")
+def start_recording():
+    camera_manager.start_recording()
+
+@route("/recording/stop")
+def stop_recording():
+    camera_manager.stop_recording()
+
 @route("/static/<name>")
 def static(name):
     return static_file(name, root="./static")
 
-run(host="localhost", port=8080, debug=True)
+camera_manager.start_background_reader()
+
+run(host="localhost", port=8080, debug=True, quiet=True)
+
+print("Stopping")
+camera_manager.stop_background_reader()
+if camera_manager.is_recording():
+    camera_manager.stop_recording()
+
+camera_manager.release_cameras()

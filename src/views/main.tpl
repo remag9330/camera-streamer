@@ -29,6 +29,10 @@
                     <option value="5">5</option>
                     <option value="10">10</option>
                 </select>
+                
+                <button id="toggleRecording">
+                    {{ "Stop" if isRecording else "Start" }} Recording
+                </button>
             </div>
         </div>
 
