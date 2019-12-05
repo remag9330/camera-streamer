@@ -1,4 +1,5 @@
 import math
+import time
 
 import cv2
 import numpy as np
@@ -14,12 +15,12 @@ class Recorder:
         self.camera_grid = _generate_camera_grid(cameras)
 
         self.recorder = None
+        self.size = self._determine_size()
 
     def start_recording(self):
         fourcc = cv2.VideoWriter_fourcc(*FORMAT)
         fps = self._determine_fps()
-        size = self._determine_size()
-        self.recorder = cv2.VideoWriter(self.filename, fourcc, fps, size)
+        self.recorder = cv2.VideoWriter(self.filename, fourcc, fps, self.size)
     
     def stop_recording(self):
         if self.recorder is not None:
@@ -29,7 +30,8 @@ class Recorder:
         if self.recorder is None:
             return
         
-        fullImage = None
+        fullImage = _create_status_image(self.size[0])
+
         for row in self.camera_grid:
             # Create the row image by concatenating the images horizontally
             rowImage = row[0].current_frame
@@ -37,15 +39,12 @@ class Recorder:
                 rowImage = cv2.hconcat([rowImage, cam.current_frame])
             
             # Then add these row images vertically
-            if fullImage is None:
-                fullImage = rowImage
-            else:
-                # Ensure the row is as wide as the whole image by adding some black space on the right
-                if rowImage.shape[1] != fullImage.shape[1]:
-                    blank_space = np.zeros((rowImage.shape[0], fullImage.shape[1] - rowImage.shape[1], 3), np.uint8)
-                    rowImage = cv2.hconcat([rowImage, blank_space])
+            # Ensure the row is as wide as the whole image by adding some black space on the right
+            if rowImage.shape[1] != fullImage.shape[1]:
+                blank_space = np.zeros((rowImage.shape[0], fullImage.shape[1] - rowImage.shape[1], 3), np.uint8)
+                rowImage = cv2.hconcat([rowImage, blank_space])
 
-                fullImage = cv2.vconcat([fullImage, rowImage])        
+            fullImage = cv2.vconcat([fullImage, rowImage])
         
         self.recorder.write(fullImage)
 
@@ -54,21 +53,38 @@ class Recorder:
 
     def _determine_size(self):
         width = 0
-        height = 0
+        height = _determine_status_bar_height()
 
         for row in self.camera_grid:
-            rowHeight = 0
-            rowWidth = 0
-
-            for camera in row:
-                rowHeight = max(rowHeight, camera.height)
-                rowWidth += camera.width
-
+            rowWidth, rowHeight = _determine_row_size(row)
             width = max(width, rowWidth)
             height += rowHeight
         
         return (width, height)
 
+def _determine_row_size(row):
+    rowWidth = sum(cam.width for cam in row)
+    rowHeight = max(cam.height for cam in row)
+
+    return (rowWidth, rowHeight)
+
+def _determine_status_bar_height():
+    return 50 # TODO Make better?
+
+def _create_status_image(width):
+    height = _determine_status_bar_height()
+    result = np.zeros((height, width, 3), np.uint8)
+    cv2.putText(
+        result,
+        time.strftime("%Y-%m-%d %H:%M:%S"),
+        (0, 25),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1,
+        (255, 255, 255, 255),
+        3
+    )
+
+    return result
 
 def _generate_camera_grid(cameras):
     grid = []

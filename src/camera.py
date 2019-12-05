@@ -1,3 +1,5 @@
+import random
+
 import cv2
 import numpy as np
 
@@ -37,7 +39,7 @@ class MockCamera:
         self.height = height
         self.fps = fps
 
-        self.blank_frame = np.zeros((height, width, 3), np.uint8)
+        self.blank_frame = np.full((height, width, 3), random.randint(0, 255), np.uint8)
         self.frame_count = 0
 
         self.update_frame()
@@ -57,3 +59,6 @@ class MockCamera:
         )
 
         self.current_frame = new_frame
+
+    def release(self):
+        pass
