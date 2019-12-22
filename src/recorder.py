@@ -4,6 +4,8 @@ import time
 import cv2
 import numpy as np
 
+import settings
+
 FORMAT = "MJPG"
 
 class Recorder:
@@ -49,7 +51,7 @@ class Recorder:
         self.recorder.write(fullImage)
 
     def _determine_fps(self):
-        return self.cameras[0].fps
+        return settings.CAMERA_FPS
 
     def _determine_size(self):
         width = 0

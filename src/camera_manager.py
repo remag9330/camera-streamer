@@ -7,28 +7,20 @@ import cv2
 from camera import Camera, MockCamera
 from recorder import Recorder
 
-CAMERA_WIDTH = 640
-CAMERA_HEIGHT = 480
-CAMERA_FPS = 10
-
-RECORDINGS_DIRECTORY = os.path.expanduser("~/Desktop/recordings")
-RECORDINGS_FILENAME_FORMAT = "%Y-%m-%d-%H-%M-%S.avi"
-
-USE_MOCK_CAMERAS = False
-MOCK_CAMERA_COUNT = 10
+import settings
 
 cameras = {}
 
 def _create_cameras():
     cameras = {}
 
-    if USE_MOCK_CAMERAS:
-        for i in range(MOCK_CAMERA_COUNT):
-            cameras[i] = MockCamera(i, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
+    if settings.USE_MOCK_CAMERAS:
+        for i in range(settings.MOCK_CAMERA_COUNT):
+            cameras[i] = MockCamera(i, settings.CAMERA_WIDTH, settings.CAMERA_HEIGHT)
 
     else:
         for i in range(10):
-            test = Camera(i, CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS)
+            test = Camera(i, settings.CAMERA_WIDTH, settings.CAMERA_HEIGHT)
 
             if test.current_frame is not None:
                 cameras[i] = test
@@ -52,7 +44,7 @@ def _camera_background_reader():
         
         end = time.time()
         total = end - start
-        sleep_time = (1 / CAMERA_FPS) - total
+        sleep_time = (1 / settings.CAMERA_FPS) - total
         if sleep_time > 0:
             time.sleep(sleep_time)
 
@@ -75,12 +67,12 @@ _recorder = None
 def start_recording():
     global _recorder
 
-    if not os.path.exists(RECORDINGS_DIRECTORY):
-        os.mkdir(RECORDINGS_DIRECTORY)
+    if not os.path.exists(settings.RECORDINGS_DIRECTORY):
+        os.mkdir(settings.RECORDINGS_DIRECTORY)
 
     filename = os.path.join(
-        RECORDINGS_DIRECTORY,
-        time.strftime(RECORDINGS_FILENAME_FORMAT))
+        settings.RECORDINGS_DIRECTORY,
+        time.strftime(settings.RECORDINGS_FILENAME_FORMAT))
 
     _recorder = Recorder(filename, *list(cameras.values()))
     _recorder.start_recording()
