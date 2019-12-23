@@ -64,26 +64,27 @@ window.addEventListener("load", () => {
     });
 });
 
-class Emitter {
+function Emitter() {
     /** @type {{ [key: string]: ((e) => void)[] }} */
-    _listeners = {}
+    this._listeners = {}
+}
 
-    on(type, func) {
-        if (!(type in this._listeners)) {
-            this._listeners[type] = [];
-        }
-
-        const listeners = this._listeners[type];
-        listeners.push(func);
+Emitter.prototype.on = function(type, func) {
+    if (!(type in this._listeners)) {
+        this._listeners[type] = [];
     }
 
-    emit(type, event) {
-        const listeners = this._listeners[type];
-        if (!listeners) { return; }
+    const listeners = this._listeners[type];
+    listeners.push(func);
+}
 
-        for (const listener of listeners) {
-            listener(event);
-        }
+Emitter.prototype.emit = function(type, event) {
+    const listeners = this._listeners[type];
+    if (!listeners) { return; }
+
+    for (const listener of listeners) {
+        listener(event);
     }
 }
+
 const emitter = new Emitter();
