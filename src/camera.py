@@ -71,7 +71,7 @@ class CurrentTimeCamera:
 
         self.camera = camera
         self.width = camera.width
-        self.height = camera.height
+        self.height = camera.height + self._determine_status_bar_height()
 
         self.update_frame()
 

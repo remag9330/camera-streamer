@@ -73,11 +73,7 @@ def start_recording():
     if not os.path.exists(settings.RECORDINGS_DIRECTORY):
         os.mkdir(settings.RECORDINGS_DIRECTORY)
 
-    filename = os.path.join(
-        settings.RECORDINGS_DIRECTORY,
-        time.strftime(settings.RECORDINGS_FILENAME_FORMAT))
-
-    _recorder = Recorder(filename, cameras[0])
+    _recorder = Recorder(cameras[0])
     _recorder.start_recording()
 
 def stop_recording():
