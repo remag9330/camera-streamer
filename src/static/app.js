@@ -8,6 +8,8 @@ window.addEventListener("load", () => {
         const frame = e.querySelector(".frame");
 
         async function getFrame() {
+            const start = Date.now();
+
             const response = await fetch(`frame/${id}`);
             /** @type {{ image: string | null }} */
             const data = await response.json();
@@ -16,13 +18,16 @@ window.addEventListener("load", () => {
             } else {
                 console.warn("could not get image");
             }
+
+            const end = Date.now();
+            const sleepTime = 1000 / fps - (end - start);
+            setTimeout(getFrame, Math.max(sleepTime, 0));
         }
 
-        let getFrameHandle = setInterval(getFrame, 1000 / fps);
+        getFrame();
+
         emitter.on("fpsChanged", (/** @type {{ fps: number }} */e) => {
-            clearInterval(getFrameHandle);
             fps = e.fps;
-            getFrameHandle = setInterval(getFrame, 1000 / fps);
         });
     });
 
