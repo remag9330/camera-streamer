@@ -14,7 +14,8 @@
             }
 
             .frame {
-                height: 94vh;
+                max-height: 90vh;
+                max-width: 100%;
             }
 
             .controls {
