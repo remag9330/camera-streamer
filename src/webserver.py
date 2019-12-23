@@ -6,7 +6,7 @@ from bottle import route, view, static_file, request, run
 import camera_manager
 
 def start_listening():
-    run(host="localhost", port=8080, debug=True, quiet=True)
+    run(host="0.0.0.0", port=8080, debug=True, quiet=True)
 
 def setup():
     @route("/")
@@ -17,7 +17,7 @@ def setup():
                 self.id = id
 
         return {
-            "cameras": [CameraModel(id) for id in camera_manager.cameras.keys()],
+            "cameras": [CameraModel(camera.camera_id) for camera in camera_manager.cameras],
             "isRecording": camera_manager.is_recording()
         }
 

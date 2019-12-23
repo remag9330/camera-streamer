@@ -4,40 +4,43 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-
         <script src="static/app.js"></script>
 
         <title>Camera Streamer</title>
+
+        <style>
+            .camera {
+                text-align: center;
+            }
+
+            .frame {
+                height: 94vh;
+            }
+
+            .controls {
+                text-align: center;
+            }
+        </style>
     </head>
 
     <body>
-        <div class="container">
-            <div class="row">
-                % for camera in cameras:
-                    <div class="camera col-sm-12 col-md-6">
-                        <div>Camera {{camera.id}}</div>
-                        <img class="frame" style="width: 320px; height: 240px;">
-                    </div>
-                % end
+        % for camera in cameras:
+            <div class="camera">
+                <img class="frame">
             </div>
+        % end
 
-            <div class="row">
-                <select id="fpsSelector">
-                    <option value="1">1</option>
-                    <option value="2">2</option>
-                    <option value="5">5</option>
-                    <option value="10">10</option>
-                </select>
-                
-                <button id="toggleRecording">
-                    {{ "Stop" if isRecording else "Start" }} Recording
-                </button>
-            </div>
+        <div class="controls">
+            <select id="fpsSelector">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+            </select>
+            
+            <button id="toggleRecording">
+                {{ "Stop" if isRecording else "Start" }} Recording
+            </button>
         </div>
-
-        <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
-        <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
-        <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
     </body>
 </html>

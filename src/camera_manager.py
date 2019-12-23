@@ -4,30 +4,33 @@ import os
 
 import cv2
 
-from camera import Camera, MockCamera
+from camera import Camera, MockCamera, GridCamera, CurrentTimeCamera
 from recorder import Recorder
 
 import settings
 
-cameras = {}
+cameras = []
 
 def _create_cameras():
-    cameras = {}
+    cameras = []
 
     if settings.USE_MOCK_CAMERAS:
         for i in range(settings.MOCK_CAMERA_COUNT):
-            cameras[i] = MockCamera(i, settings.CAMERA_WIDTH, settings.CAMERA_HEIGHT)
+            cameras.append(MockCamera(i, settings.CAMERA_WIDTH, settings.CAMERA_HEIGHT))
 
     else:
         for i in range(10):
             test = Camera(i, settings.CAMERA_WIDTH, settings.CAMERA_HEIGHT)
 
             if test.current_frame is not None:
-                cameras[i] = test
+                cameras.append(test)
             else:
                 test.release()
 
-    return cameras
+    return [_merge_cameras(cameras)]
+
+def _merge_cameras(cameras):
+    return CurrentTimeCamera(GridCamera(cameras))
 
 _background_reader_running = True
 _background_reader_thread = None
@@ -36,7 +39,7 @@ def _camera_background_reader():
     while _background_reader_running:
         start = time.time()
 
-        for camera in cameras.values():
+        for camera in cameras:
             camera.update_frame()
         
         if _recorder is not None:
@@ -74,7 +77,7 @@ def start_recording():
         settings.RECORDINGS_DIRECTORY,
         time.strftime(settings.RECORDINGS_FILENAME_FORMAT))
 
-    _recorder = Recorder(filename, *list(cameras.values()))
+    _recorder = Recorder(filename, cameras[0])
     _recorder.start_recording()
 
 def stop_recording():
@@ -87,6 +90,6 @@ def is_recording():
 
 def release_cameras():
     global cameras
-    for camera in cameras.values():
+    for camera in cameras:
         camera.release()
-    cameras = {}
+    cameras = []
