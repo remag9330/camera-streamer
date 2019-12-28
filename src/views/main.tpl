@@ -25,11 +25,9 @@
     </head>
 
     <body>
-        % for camera in cameras:
-            <div class="camera">
-                <img class="frame">
-            </div>
-        % end
+        <div class="camera">
+            <img class="frame">
+        </div>
 
         <div class="controls">
             <select id="fpsSelector">

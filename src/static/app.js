@@ -10,7 +10,7 @@ window.addEventListener("load", () => {
         async function getFrame() {
             const start = Date.now();
 
-            const response = await fetch(`frame/${id}`);
+            const response = await fetch(`frame`);
             /** @type {{ image: string | null }} */
             const data = await response.json();
             if (data.image) {

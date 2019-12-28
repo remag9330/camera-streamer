@@ -9,8 +9,6 @@ from recorder import Recorder
 
 import settings
 
-cameras = []
-
 def _create_cameras():
     cameras = []
 
@@ -27,10 +25,12 @@ def _create_cameras():
             else:
                 test.release()
 
-    return [_merge_cameras(cameras)]
+    return _merge_cameras(cameras)
 
 def _merge_cameras(cameras):
     return CurrentTimeCamera(GridCamera(cameras))
+
+camera = _create_cameras()
 
 _background_reader_running = True
 _background_reader_thread = None
@@ -39,20 +39,16 @@ def _camera_background_reader():
     while _background_reader_running:
         start = time.time()
 
-        for camera in cameras:
-            camera.update_frame()
-        
+        camera.update_frame()
+    
         if _recorder is not None:
-            _recorder.write_frames()
+            _recorder.write_video_frame(camera.current_frame)
         
         end = time.time()
         total = end - start
         sleep_time = (1 / settings.CAMERA_FPS) - total
         if sleep_time > 0:
             time.sleep(sleep_time)
-
-
-cameras = _create_cameras()
 
 def start_background_reader():
     global _background_reader_thread
@@ -73,7 +69,7 @@ def start_recording():
     if not os.path.exists(settings.RECORDINGS_DIRECTORY):
         os.mkdir(settings.RECORDINGS_DIRECTORY)
 
-    _recorder = Recorder(cameras[0])
+    _recorder = Recorder(camera.width, camera.height)
     _recorder.start_recording()
 
 def stop_recording():
@@ -85,7 +81,11 @@ def is_recording():
     return _recorder is not None
 
 def release_cameras():
-    global cameras
-    for camera in cameras:
-        camera.release()
-    cameras = []
+    global camera
+    camera.release()
+    camera = None
+
+# This only needs to be called if release_cameras is called prior - a camera will be created initially on module load
+def create_cameras():
+    global camera
+    camera = _create_cameras()

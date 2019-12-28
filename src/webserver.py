@@ -12,17 +12,12 @@ def setup():
     @route("/")
     @view("main")
     def main():
-        class CameraModel:
-            def __init__(self, id):
-                self.id = id
-
         return {
-            "cameras": [CameraModel(camera.camera_id) for camera in camera_manager.cameras],
             "isRecording": camera_manager.is_recording()
         }
 
-    @route("/frame/<id:int>")
-    def frame(id):
+    @route("/frame")
+    def frame():
         format = request.query.format or ".jpg"
         if format[0] != ".":
             format = "." + format
@@ -35,7 +30,7 @@ def setup():
         if format not in mime_types:
             format = ".jpg"
 
-        frame = camera_manager.cameras[id].current_frame
+        frame = camera_manager.camera.current_frame
         if frame is not None:
             success, buf = cv2.imencode(format, frame)
             if success:
