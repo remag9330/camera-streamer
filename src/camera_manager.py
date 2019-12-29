@@ -36,17 +36,15 @@ _background_reader_running = True
 _background_reader_thread = None
 
 def _camera_background_reader():
-    while _background_reader_running:
-        start = time.time()
+    start_time = time.time()
+    seconds_per_frame = 1 / settings.CAMERA_FPS
 
+    while _background_reader_running:
         camera.update_frame()
-    
-        if _recorder is not None:
-            _recorder.write_video_frame(camera.current_frame)
         
-        end = time.time()
-        total = end - start
-        sleep_time = (1 / settings.CAMERA_FPS) - total
+        current_time = time.time()
+        time_since_start = current_time - start_time
+        sleep_time = seconds_per_frame - (time_since_start % seconds_per_frame)
         if sleep_time > 0:
             time.sleep(sleep_time)
 
@@ -69,18 +67,22 @@ def start_recording():
     if not os.path.exists(settings.RECORDINGS_DIRECTORY):
         os.mkdir(settings.RECORDINGS_DIRECTORY)
 
-    _recorder = Recorder(camera.width, camera.height)
+    _recorder = Recorder(camera)
     _recorder.start_recording()
 
 def stop_recording():
     global _recorder
     _recorder.stop_recording()
+    _recorder.release()
     _recorder = None
 
 def is_recording():
     return _recorder is not None
 
 def release_cameras():
+    if is_recording():
+        stop_recording()
+
     global camera
     camera.release()
     camera = None

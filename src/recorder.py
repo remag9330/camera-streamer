@@ -1,6 +1,7 @@
 import os
 import time
 import wave
+import threading
 
 import cv2
 
@@ -12,8 +13,8 @@ if settings.RECORD_AUDIO:
 
 
 class Recorder:
-    def __init__(self, camera_width, camera_height):
-        self.video = VideoRecorder(camera_width, camera_height)
+    def __init__(self, camera):
+        self.video = VideoRecorder(camera, self.video_frame_written)
         self.audio = AudioRecorder()
 
         self.frame_count = 0
@@ -28,9 +29,7 @@ class Recorder:
         self.video.stop_recording()
         self.audio.stop_recording()
 
-    def write_video_frame(self, frame):
-        self.video.write_frame(frame)
-
+    def video_frame_written(self):
         if settings.RECORDINGS_FRAMES_PER_FILE > 0:
             self.frame_count += 1
 
@@ -38,18 +37,31 @@ class Recorder:
                 self.stop_recording()
                 self.start_recording()
 
+    def release(self):
+        self.video.release()
+        self.audio.release()
+
 VIDEO_FORMAT = "MJPG"
 
 class VideoRecorder:
-    def __init__(self, camera_width, camera_height):
+    def __init__(self, camera, frame_written_callback=None):
         self.out_file = Mutex(None)
-        self.size = (camera_width, camera_height)
+        self.size = (camera.width, camera.height)
+        self.camera = camera
+
+        self.frame_written_callback = frame_written_callback
+
+        self._background_reader_running = True
+        self.background_thread = threading.Thread(target=self._write_in_background, daemon=True)
 
     def start_recording(self):
         with self.out_file.acquire() as lock:
             self._start_recording(lock)
 
     def _start_recording(self, lock):
+        if not self.background_thread.is_alive():
+            self.background_thread.start()
+
         self._stop_recording(lock)
 
         fourcc = cv2.VideoWriter_fourcc(*VIDEO_FORMAT)
@@ -69,11 +81,33 @@ class VideoRecorder:
         with self.out_file.acquire() as lock:
             if lock.value is None:
                 return
-            
+
             lock.value.write(frame)
+
+    def release(self):
+        self.stop_recording()
+        self._background_reader_running = False
+        self.background_thread.join()
 
     def _determine_fps(self):
         return settings.CAMERA_FPS
+
+    def _write_in_background(self):
+        start_time = time.time()
+        seconds_per_frame = 1 / settings.CAMERA_FPS
+
+        while self._background_reader_running:
+            frame = self.camera.current_frame
+            if frame is not None:
+                self.write_frame(frame)
+                if self.frame_written_callback is not None:
+                    self.frame_written_callback()
+            
+            current_time = time.time()
+            time_since_start = current_time - start_time
+            sleep_time = seconds_per_frame - (time_since_start % seconds_per_frame)
+            if sleep_time > 0:
+                time.sleep(sleep_time)
 
 WIDTH = 2
 CHANNELS = 2
@@ -112,7 +146,7 @@ class AudioRecorder:
             lock.value.close()
             lock.value = None
 
-    def release():
+    def release(self):
         self.stop_recording()
 
         self.stream.stop_stream()
@@ -120,6 +154,7 @@ class AudioRecorder:
         self.stream = None
 
         self.pyaudio.terminate()
+        self.pyaudio = None
 
     def audio_callback(self, in_data, frame_count, time_info, status):
         with self.outfile.acquire() as lock:
