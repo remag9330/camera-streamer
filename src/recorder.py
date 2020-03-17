@@ -5,6 +5,7 @@ import threading
 
 import cv2
 
+import ffmpeg
 from utils import Mutex
 import settings
 
@@ -17,6 +18,8 @@ class Recorder:
         self.video = VideoRecorder(camera, self.video_frame_written)
         self.audio = AudioRecorder()
 
+        self.combining_threads = []
+
         self.frame_count = 0
 
     def start_recording(self):
@@ -26,8 +29,9 @@ class Recorder:
         self.frame_count = 0
 
     def stop_recording(self):
-        self.video.stop_recording()
-        self.audio.stop_recording()
+        video_filename = self.video.stop_recording()
+        audio_filename = self.audio.stop_recording()
+        self.combine_video_audio_background(video_filename, audio_filename)
 
     def video_frame_written(self):
         if settings.RECORDINGS_FRAMES_PER_FILE > 0:
@@ -41,11 +45,27 @@ class Recorder:
         self.video.release()
         self.audio.release()
 
+    def combine_video_audio_background(self, video_filename, audio_filename):
+        def func():
+            try:
+                (filename, ext) = os.path.splitext(video_filename)
+                out_filename = filename[:-6] + ext
+
+                ffmpeg.combine_video_audio(video_filename, audio_filename, out_filename)
+            finally:
+                self.combining_threads.remove(thread)
+            
+        thread = threading.Thread(target=func, daemon=True)
+        self.combining_threads.append(thread)
+
+        thread.start()
+
 VIDEO_FORMAT = "MJPG"
 
 class VideoRecorder:
     def __init__(self, camera, frame_written_callback=None):
         self.out_file = Mutex(None)
+        self.filename = ""
         self.size = (camera.width, camera.height)
         self.camera = camera
 
@@ -66,16 +86,23 @@ class VideoRecorder:
 
         fourcc = cv2.VideoWriter_fourcc(*VIDEO_FORMAT)
         fps = self._determine_fps()
-        lock.value = cv2.VideoWriter(filename(settings.RECORDINGS_FILENAME_VIDEO_EXTENSION), fourcc, fps, self.size)
+        self.filename = filename("-video", settings.RECORDINGS_FILENAME_VIDEO_EXTENSION)
+        lock.value = cv2.VideoWriter(self.filename, fourcc, fps, self.size)
 
     def stop_recording(self):
         with self.out_file.acquire() as lock:
-            self._stop_recording(lock)
+            return self._stop_recording(lock)
     
     def _stop_recording(self, lock):
+        filename = ""
+
         if lock.value is not None:
+            filename = self.filename
+            self.filename = ""
             lock.value.release()
             lock.value = None
+
+        return filename
 
     def write_frame(self, frame):
         with self.out_file.acquire() as lock:
@@ -110,7 +137,7 @@ class VideoRecorder:
                 time.sleep(sleep_time)
 
 WIDTH = 2
-CHANNELS = 2
+CHANNELS = 1
 RATE = 44100
 AUDIO_FORMAT = pyaudio.paInt16 if settings.RECORD_AUDIO else 0
 
@@ -130,7 +157,7 @@ class AudioRecorder:
         self.stream.start_stream()
 
     def start_recording(self):
-        f = wave.open(filename(settings.RECORDINGS_FILENAME_AUDIO_EXTENSION), "wb")
+        f = wave.open(filename("-audio", settings.RECORDINGS_FILENAME_AUDIO_EXTENSION), "wb")
         f.setnchannels(CHANNELS)
         f.setsampwidth(self.pyaudio.get_sample_size(AUDIO_FORMAT))
         f.setframerate(RATE)
@@ -141,10 +168,13 @@ class AudioRecorder:
     def stop_recording(self):
         with self.outfile.acquire() as lock:
             if lock.value is None:
-                return
+                return ""
             
+            filename = lock.value._file.name
             lock.value.close()
             lock.value = None
+
+            return filename
 
     def release(self):
         self.stop_recording()
@@ -163,7 +193,7 @@ class AudioRecorder:
 
         return (None, pyaudio.paContinue)
 
-def filename(extension):
+def filename(suffix, extension):
     return os.path.join(
         settings.RECORDINGS_DIRECTORY,
-        time.strftime(settings.RECORDINGS_FILENAME_FORMAT) + extension)
+        time.strftime(settings.RECORDINGS_FILENAME_FORMAT) + suffix + extension)
