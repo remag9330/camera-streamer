@@ -1,6 +1,7 @@
 import random
 import math
 import time
+import logging
 
 import cv2
 import numpy as np
@@ -19,7 +20,11 @@ class Camera:
         if self.height > 0:
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         
-        print(f"camera {self.camera_id} - width: {self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)}, height: {self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)}, fps: {self.camera.get(cv2.CAP_PROP_FPS)}")
+        frame_width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
+        frame_height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        fps = self.camera.get(cv2.CAP_PROP_FPS)
+        if frame_width > 0 and frame_height > 0 and fps > 0:
+            logging.info(f"camera {self.camera_id} - width: {frame_width}, height: {frame_height}, fps: {fps}")
 
         self.update_frame()
     

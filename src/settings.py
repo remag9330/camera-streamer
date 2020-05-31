@@ -14,3 +14,14 @@ RECORDINGS_FRAMES_PER_FILE = 60 * 60 * CAMERA_FPS
 
 USE_MOCK_CAMERAS = False
 MOCK_CAMERA_COUNT = 4
+
+RUN_CAMERAS = True
+RUN_WEBSERVER = True
+
+### Interprocess communication data ###
+# The IP for the socket in the camera process to connect to
+CONNECT_TO_IP = "localhost"
+# The IP for the server socket to listen on
+BIND_IP = "0.0.0.0"
+# The port for the server socket to listen on and the camera socket to connect to
+PORT = 26349

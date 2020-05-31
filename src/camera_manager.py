@@ -1,6 +1,7 @@
+import base64
 import time
-import threading
 import os
+import logging
 
 import cv2
 
@@ -32,14 +33,12 @@ def _merge_cameras(cameras):
 
 camera = _create_cameras()
 
-_background_reader_running = True
-_background_reader_thread = None
-
-def _camera_background_reader():
+def _camera_reader(pipe):
+    running = True
     start_time = time.time()
     seconds_per_frame = 1 / settings.CAMERA_FPS
 
-    while _background_reader_running:
+    while running:
         camera.update_frame()
         
         current_time = time.time()
@@ -48,16 +47,22 @@ def _camera_background_reader():
         if sleep_time > 0:
             time.sleep(sleep_time)
 
-def start_background_reader():
-    global _background_reader_thread
-    _background_reader_thread = threading.Thread(target=_camera_background_reader, daemon=True)
-    _background_reader_thread.start()
+        if pipe.poll():
+            msg = pipe.recv()
+            if isinstance(msg, str) and msg == "terminate":
+                running = False
 
-def stop_background_reader():
-    global _background_reader_running
-    _background_reader_running = False
-    if _background_reader_thread is not None:
-        _background_reader_thread.join()
+def start_reader(pipe):
+    logging.info("Starting cameras")
+    try:
+        _camera_reader(pipe) # Blocks until shutdown
+    except KeyboardInterrupt:
+        pass
+    logging.info("Cameras stopping, cleaning up")
+
+    release_cameras()
+    logging.info("Cameras cleaned up")
+
 
 _recorder = None
 
@@ -69,15 +74,30 @@ def start_recording():
 
     _recorder = Recorder(camera)
     _recorder.start_recording()
+    logging.info("Recording started")
 
 def stop_recording():
     global _recorder
     _recorder.stop_recording()
     _recorder.release()
     _recorder = None
+    logging.info("Recording ended")
 
 def is_recording():
     return _recorder is not None
+
+
+def current_frame_base64(format):
+    frame = camera.current_frame
+    if frame is None:
+        return None
+
+    success, buf = cv2.imencode(format, frame)
+    if not success:
+        return None
+    
+    return base64.b64encode(buf).decode("utf-8")
+
 
 def release_cameras():
     if is_recording():
