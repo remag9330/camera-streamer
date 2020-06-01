@@ -112,30 +112,32 @@ class BaseConnection:
 
     def _try_receive_data(self):
         try:
-            raw = self.socket.recv(4096)
-            if len(raw) == 0:
-                logging.debug("Recieved 0 data")
-                raise ConnectionAbortedError("Connection was closed")
+            for _ in range(250): # Reading 4kb at most 250 times per tick => 1mb per tick
+                raw = self.socket.recv(4096)
 
-            self.unfinished_read_buffer += raw
-            while len(self.unfinished_read_buffer) > 0:
-                if len(self.unfinished_read_buffer) < BYTES_PER_PACKET_SIZE:
-                    return
+                if len(raw) == 0:
+                    logging.debug("Recieved 0 data")
+                    raise ConnectionAbortedError("Connection was closed")
 
-                packet_size = int.from_bytes(self.unfinished_read_buffer[:BYTES_PER_PACKET_SIZE], PACKET_SIZE_ENDIANNESS)
-                raw_packet_size = packet_size + BYTES_PER_PACKET_SIZE
-                if len(self.unfinished_read_buffer) < raw_packet_size:
-                    return
-
-                raw_msg = self.unfinished_read_buffer[:raw_packet_size]
-                self.unfinished_read_buffer = self.unfinished_read_buffer[raw_packet_size:]
-                message = raw_msg[BYTES_PER_PACKET_SIZE:]
-
-                if not self._process_message_on_receive(message):
-                    self.received_messages.append(message)
-            
+                self.unfinished_read_buffer += raw
         except (BlockingIOError, socket.timeout):
-            return
+            pass
+
+        while len(self.unfinished_read_buffer) > 0:
+            if len(self.unfinished_read_buffer) < BYTES_PER_PACKET_SIZE:
+                return
+
+            packet_size = int.from_bytes(self.unfinished_read_buffer[:BYTES_PER_PACKET_SIZE], PACKET_SIZE_ENDIANNESS)
+            raw_packet_size = packet_size + BYTES_PER_PACKET_SIZE
+            if len(self.unfinished_read_buffer) < raw_packet_size:
+                return
+
+            raw_msg = self.unfinished_read_buffer[:raw_packet_size]
+            self.unfinished_read_buffer = self.unfinished_read_buffer[raw_packet_size:]
+            message = raw_msg[BYTES_PER_PACKET_SIZE:]
+
+            if not self._process_message_on_receive(message):
+                self.received_messages.append(message)
 
     def _process_message_on_receive(self, msg_bytes):
         return False
