@@ -71,6 +71,9 @@ def start_recording():
 
     if not os.path.exists(settings.RECORDINGS_DIRECTORY):
         os.mkdir(settings.RECORDINGS_DIRECTORY)
+    parts_dir = os.path.join(settings.RECORDINGS_DIRECTORY, settings.RECORDINGS_PARTS_SUBDIR_NAME)
+    if not os.path.exists(parts_dir):
+        os.mkdir(parts_dir)
 
     _recorder = Recorder(camera)
     _recorder.start_recording()

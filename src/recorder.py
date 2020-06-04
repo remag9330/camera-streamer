@@ -18,6 +18,8 @@ class Recorder:
         self.video = VideoRecorder(camera, self.video_frame_written)
         self.audio = AudioRecorder()
 
+        self.full_video_name = None
+
         self.combining_threads = []
 
         self.frame_count = 0
@@ -48,10 +50,19 @@ class Recorder:
     def combine_video_audio_background(self, video_filename, audio_filename):
         def func():
             try:
-                (filename, ext) = os.path.splitext(video_filename)
-                out_filename = filename[:-6] + ext
+                out_filename = combined_filename_from_video_filename(video_filename)
+                if not ffmpeg.combine_video_audio(video_filename, audio_filename, out_filename):
+                    return
 
-                ffmpeg.combine_video_audio(video_filename, audio_filename, out_filename)
+                if not settings.RECORDINGS_KEEP_PARTS:
+                    os.remove(video_filename)
+                    os.remove(audio_filename)
+
+                if self.full_video_name is None:
+                    self.full_video_name = out_filename
+                else:
+                    if ffmpeg.append_videos(self.full_video_name, out_filename):
+                        os.remove(out_filename)
             finally:
                 self.combining_threads.remove(thread)
             
@@ -61,6 +72,7 @@ class Recorder:
         thread.start()
 
 VIDEO_FORMAT = "MJPG"
+VIDEO_SUFFIX = "-video"
 
 class VideoRecorder:
     def __init__(self, camera, frame_written_callback=None):
@@ -86,7 +98,7 @@ class VideoRecorder:
 
         fourcc = cv2.VideoWriter_fourcc(*VIDEO_FORMAT)
         fps = self._determine_fps()
-        self.filename = filename("-video", settings.RECORDINGS_FILENAME_VIDEO_EXTENSION)
+        self.filename = parts_filename(VIDEO_SUFFIX, settings.RECORDINGS_FILENAME_VIDEO_EXTENSION)
         lock.value = cv2.VideoWriter(self.filename, fourcc, fps, self.size)
 
     def stop_recording(self):
@@ -140,6 +152,7 @@ WIDTH = 2
 CHANNELS = 1
 RATE = 44100
 AUDIO_FORMAT = pyaudio.paInt16 if settings.RECORD_AUDIO else 0
+AUDIO_SUFFIX = "-audio"
 
 class AudioRecorder:
     def __init__(self):
@@ -157,7 +170,7 @@ class AudioRecorder:
         self.stream.start_stream()
 
     def start_recording(self):
-        f = wave.open(filename("-audio", settings.RECORDINGS_FILENAME_AUDIO_EXTENSION), "wb")
+        f = wave.open(parts_filename(AUDIO_SUFFIX, settings.RECORDINGS_FILENAME_AUDIO_EXTENSION), "wb")
         f.setnchannels(CHANNELS)
         f.setsampwidth(self.pyaudio.get_sample_size(AUDIO_FORMAT))
         f.setframerate(RATE)
@@ -193,7 +206,17 @@ class AudioRecorder:
 
         return (None, pyaudio.paContinue)
 
-def filename(suffix, extension):
+def parts_filename(suffix, extension):
     return os.path.join(
         settings.RECORDINGS_DIRECTORY,
+        settings.RECORDINGS_PARTS_SUBDIR_NAME,
         time.strftime(settings.RECORDINGS_FILENAME_FORMAT) + suffix + extension)
+
+def combined_filename_from_video_filename(filename):
+    (path, ext) = os.path.splitext(filename)
+    filename = os.path.split(path)[1].replace(VIDEO_SUFFIX, "")
+
+    return os.path.join(
+        settings.RECORDINGS_DIRECTORY,
+        filename + ext
+    )
