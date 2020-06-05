@@ -10,13 +10,17 @@ window.addEventListener("load", () => {
         async function getFrame() {
             const start = Date.now();
 
-            const response = await fetch(`frame`);
-            /** @type {{ image: string | null }} */
-            const data = await response.json();
-            if (data.image) {
-                frame.src = data.image;
-            } else {
-                console.warn("could not get image");
+            try {
+                const response = await fetch(`frame`);
+                /** @type {{ image: string | null }} */
+                const data = await response.json();
+                if (data.image) {
+                    frame.src = data.image;
+                } else {
+                    console.warn("could not get image");
+                }
+            } catch (ex) {
+                console.error("Could not get frame", ex);
             }
 
             const end = Date.now();

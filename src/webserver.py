@@ -36,7 +36,8 @@ def setup(cam_comm):
     @view("main")
     def main():
         return {
-            "isRecording": cam_comm.is_recording()
+            "isRecording": cam_comm.is_recording(),
+            "initialImage": frame()["image"]
         }
 
     @route("/frame")

@@ -26,7 +26,7 @@
 
     <body>
         <div class="camera">
-            <img class="frame">
+            <img class="frame" src="{{ initialImage }}">
         </div>
 
         <div class="controls">
