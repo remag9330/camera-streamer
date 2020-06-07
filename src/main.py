@@ -1,6 +1,8 @@
 import os
+import sys
 import time
 import multiprocessing
+import traceback
 import logging
 
 import settings
@@ -12,7 +14,19 @@ os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 format = "%(levelname)s:%(processName)s:%(process)d:%(threadName)s:%(thread)d:%(name)s:%(asctime)s\n\t%(message)s"
 level = logging.DEBUG
-logging.basicConfig(format=format, level=level)
+logging.basicConfig(
+    format=format,
+    level=level,
+    handlers=[
+        logging.FileHandler("logs.txt"),
+        logging.StreamHandler(sys.stdout)
+    ])
+
+def custom_except_hook(exc_type, exc_obj, tb):
+    text = "\t".join(traceback.format_exception(exc_type, exc_obj, tb))
+    logging.critical(text)
+
+sys.excepthook = custom_except_hook
 
 def start_cameras(pipe):
     import camera_manager
