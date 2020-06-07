@@ -12,7 +12,7 @@ ID_BYTES_LEN = len(uuid.uuid4().bytes)
 
 REQUEST_KEY = "request"
 
-REQUEST_RESPONSE_TIMEOUT = 30 # seconds
+REQUEST_RESPONSE_TIMEOUT = 5 # seconds
 
 
 class BaseConnection:
@@ -75,7 +75,7 @@ class BaseConnection:
         return uuid.uuid4().bytes
 
     def _start_background_thread(self, ip, port):
-        t = threading.Thread(target=self._mainloop, args=(ip, port))
+        t = threading.Thread(target=self._mainloop, args=(ip, port), name="IPC Mainloop")
         t.start()
         return t
 
@@ -149,6 +149,8 @@ class WebServerSide(BaseConnection):
         self.srv_socket.bind((ip, port))
         self.srv_socket.listen()
         
+        self.socket = None
+        
         super().__init__(ip, port)
 
     def is_recording(self):
@@ -177,6 +179,8 @@ class WebServerSide(BaseConnection):
         self.srv_socket.settimeout(1)
         while self.running:
             try:
+                if self.socket is not None:
+                    self.socket.close()
                 [self.socket, self.clnt_ip] = self.srv_socket.accept()
                 logging.info("Connection received.")
                 self.socket.setblocking(False)
@@ -188,7 +192,7 @@ class WebServerSide(BaseConnection):
 
 class CameraClientSide(BaseConnection):
     def __init__(self, camera_manager, ip, port):
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket = None
         self.camera_manager = camera_manager
         
         super().__init__(ip, port)
@@ -196,11 +200,14 @@ class CameraClientSide(BaseConnection):
     def _connect_or_accept(self, ip, port):
         while self.running:
             try:
+                if self.socket is not None:
+                    self.socket.close()
+
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((ip, port))
                 logging.info("Socket connected")
                 break
-            except ConnectionError:
+            except (ConnectionError, OSError):
                 logging.warn("Could not connect to server - re-attempting...")
                 time.sleep(1)
 

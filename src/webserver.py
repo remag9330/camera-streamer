@@ -19,7 +19,7 @@ def start_listening():
     run(server=server)
 
 def start_stopper_listener(pipe):
-    t = threading.Thread(target=_stopper_listener, args=(pipe,))
+    t = threading.Thread(target=_stopper_listener, args=(pipe,), name="Webserver Stopper Listener")
     t.start()
     return t
 
