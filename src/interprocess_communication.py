@@ -4,6 +4,7 @@ import time
 import uuid
 import json
 import logging
+import select
 
 BYTES_PER_PACKET_SIZE = 4
 PACKET_SIZE_ENDIANNESS = "big"
@@ -14,12 +15,23 @@ REQUEST_KEY = "request"
 
 REQUEST_RESPONSE_TIMEOUT = 5 # seconds
 
+HEARTBEAT_MESSAGE = b"heartbeat"
+HEARTBEATS_PER_SECOND = 1
+SECONDS_PER_HEARTBEAT = 1 / HEARTBEATS_PER_SECOND
+SECONDS_BEFORE_HEARTBEAT_TIMEOUT = 10
+
+def prepend_message_length(msg):
+    msg_len_bytes = len(msg).to_bytes(BYTES_PER_PACKET_SIZE, PACKET_SIZE_ENDIANNESS)
+    return msg_len_bytes + msg
 
 class BaseConnection:
     def __init__(self, ip, port):
-        self.messages_to_send = []
-        self.received_messages = []
+        self.write_buffer = b""
         self.unfinished_read_buffer = b""
+        self.received_messages = []
+
+        self.last_heartbeat_received = 0
+        self.last_heartbeat_sent = 0
 
         self.running = True
         self.thread = self._start_background_thread(ip, port)
@@ -54,7 +66,7 @@ class BaseConnection:
         return id
 
     def _send(self, data):
-        self.messages_to_send.append(data)
+        self.write_buffer += prepend_message_length(data)
 
     def _recv_by_id(self, id):
         for (i, v) in enumerate(self.received_messages):
@@ -86,40 +98,74 @@ class BaseConnection:
     def _mainloop(self, ip, port):
         while self.running:
             self._connect_or_accept(ip, port)
+            self.last_heartbeat_received = time.time()
 
             while self.running:
                 try:
-                    self._try_send_data()
-                    self._try_receive_data()
-                    time.sleep(0.1)
+                    [ready_to_read, ready_to_write] = self._select(0.1)
+
+                    self._do_heartbeating()
+                    
+                    if ready_to_read:
+                        self._try_receive_data()
+
+                    if ready_to_write:
+                        self._try_send_data()
                 except ConnectionError:
                     logging.warning("Connection error occurred - reconnecting...")
                     break
+        self._stop()
 
     def _connect_or_accept(self, ip, port):
         raise NotImplementedError("Must be overridden!")
 
+    def _select(self, timeout_seconds=None):
+        readers = [self.socket]
+        writers = [self.socket] if len(self.write_buffer) > 0 else []
+        exceptionals = [self.socket]
+
+        [ready_readers, ready_writers, ready_exc] = select.select(readers, writers, exceptionals, timeout_seconds)
+        if len(ready_exc) > 0:
+            raise ConnectionError("Socket is in an exceptional state")
+        
+        return [len(ready_readers) > 0, len(ready_writers) > 0]
+
+    def _do_heartbeating(self):
+        curr_time = time.time()
+
+        if HEARTBEAT_MESSAGE in self.received_messages:
+            logging.debug("Heartbeat received")
+            self.last_heartbeat_received = curr_time
+
+        self.received_messages = [i for i in self.received_messages if i != HEARTBEAT_MESSAGE]
+
+        if curr_time - self.last_heartbeat_received >= SECONDS_BEFORE_HEARTBEAT_TIMEOUT:
+            raise ConnectionError("Heartbeat not received")
+
+        if curr_time - self.last_heartbeat_sent >= SECONDS_PER_HEARTBEAT:
+            self.last_heartbeat_sent = curr_time
+            self._send(HEARTBEAT_MESSAGE)
+
+    def _stop(self):
+        pass
+
     def _try_send_data(self):
-        if len(self.messages_to_send) > 0:
+        if len(self.write_buffer) > 0:
             try:
-                data = self.messages_to_send[0]
-                data_len_bytes = len(data).to_bytes(BYTES_PER_PACKET_SIZE, PACKET_SIZE_ENDIANNESS)
-                self.socket.sendall(data_len_bytes + data)
-                # Only if the send successfully completes do we remove the data from messages_to_send
-                self.messages_to_send.pop()
-            except Exception:
-                logging.exception("Error in WebServerSide!")
+                sent = self.socket.send(self.write_buffer)
+                self.write_buffer = self.write_buffer[sent:]
+            except (BlockingIOError, socket.timeout):
+                pass
 
     def _try_receive_data(self):
         try:
-            for _ in range(250): # Reading 4kb at most 250 times per tick => 1mb per tick
-                raw = self.socket.recv(4096)
+            raw = self.socket.recv(4096)
 
-                if len(raw) == 0:
-                    logging.debug("Recieved 0 data")
-                    raise ConnectionAbortedError("Connection was closed")
+            if len(raw) == 0:
+                logging.debug("Recieved 0 data")
+                raise ConnectionAbortedError("Connection was closed")
 
-                self.unfinished_read_buffer += raw
+            self.unfinished_read_buffer += raw
         except (BlockingIOError, socket.timeout):
             pass
 
@@ -146,6 +192,7 @@ class BaseConnection:
 class WebServerSide(BaseConnection):
     def __init__(self, ip, port):
         self.srv_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.srv_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.srv_socket.bind((ip, port))
         self.srv_socket.listen()
         
@@ -181,14 +228,17 @@ class WebServerSide(BaseConnection):
             try:
                 if self.socket is not None:
                     self.socket.close()
+                    self.socket = None
+
                 [self.socket, self.clnt_ip] = self.srv_socket.accept()
                 logging.info("Connection received.")
                 self.socket.setblocking(False)
                 break
             except socket.timeout:
-                logging.debug("No connection accepted before timeout - retrying")
                 pass
         
+    def _stop(self):
+        self.srv_socket.close()
 
 class CameraClientSide(BaseConnection):
     def __init__(self, camera_manager, ip, port):
@@ -202,13 +252,13 @@ class CameraClientSide(BaseConnection):
             try:
                 if self.socket is not None:
                     self.socket.close()
+                    self.socket = None
 
                 self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.socket.connect((ip, port))
                 logging.info("Socket connected")
                 break
             except (ConnectionError, OSError):
-                logging.warn("Could not connect to server - re-attempting...")
                 time.sleep(1)
 
         self.socket.setblocking(False)
