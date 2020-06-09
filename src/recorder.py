@@ -66,7 +66,7 @@ class Recorder:
             finally:
                 self.combining_threads.remove(thread)
             
-        thread = threading.Thread(target=func, daemon=True, name="Combine AV Background")
+        thread = threading.Thread(target=func, name="Combine AV Background")
         self.combining_threads.append(thread)
 
         thread.start()
@@ -84,7 +84,7 @@ class VideoRecorder:
         self.frame_written_callback = frame_written_callback
 
         self._background_reader_running = True
-        self.background_thread = threading.Thread(target=self._write_in_background, daemon=True, name="Video Background Writer")
+        self.background_thread = threading.Thread(target=self._write_in_background, name="Video Background Writer")
 
     def start_recording(self):
         with self.out_file.acquire() as lock:
