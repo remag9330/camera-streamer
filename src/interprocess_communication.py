@@ -111,8 +111,8 @@ class BaseConnection:
 
                     if ready_to_write:
                         self._try_send_data()
-                except ConnectionError:
-                    logging.warning("Connection error occurred - reconnecting...")
+                except ConnectionError as ex:
+                    logging.warning("Connection error occurred (%s) - reconnecting...", ex)
                     break
         self._stop()
 
@@ -134,7 +134,6 @@ class BaseConnection:
         curr_time = time.time()
 
         if HEARTBEAT_MESSAGE in self.received_messages:
-            logging.debug("Heartbeat received")
             self.last_heartbeat_received = curr_time
 
         self.received_messages = [i for i in self.received_messages if i != HEARTBEAT_MESSAGE]
