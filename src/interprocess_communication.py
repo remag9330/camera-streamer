@@ -13,16 +13,18 @@ ID_BYTES_LEN = len(uuid.uuid4().bytes)
 
 REQUEST_KEY = "request"
 
-REQUEST_RESPONSE_TIMEOUT = 5 # seconds
+REQUEST_RESPONSE_TIMEOUT = 5  # seconds
 
 HEARTBEAT_MESSAGE = b"heartbeat"
 HEARTBEATS_PER_SECOND = 1
 SECONDS_PER_HEARTBEAT = 1 / HEARTBEATS_PER_SECOND
 SECONDS_BEFORE_HEARTBEAT_TIMEOUT = 10
 
+
 def prepend_message_length(msg):
     msg_len_bytes = len(msg).to_bytes(BYTES_PER_PACKET_SIZE, PACKET_SIZE_ENDIANNESS)
     return msg_len_bytes + msg
+
 
 class BaseConnection:
     def __init__(self, ip, port):
@@ -44,7 +46,7 @@ class BaseConnection:
             data = json.dumps(data).encode("utf-8")
 
         id = self._generate_id_and_send(data)
-        
+
         start = time.time()
         while time.time() - start <= REQUEST_RESPONSE_TIMEOUT:
             response = self._recv_by_id(id)
@@ -76,7 +78,7 @@ class BaseConnection:
                 return result
 
         return None
-    
+
     def _recv(self):
         if len(self.received_messages) > 0:
             return self.received_messages.pop()
@@ -105,7 +107,7 @@ class BaseConnection:
                     [ready_to_read, ready_to_write] = self._select(0.1)
 
                     self._do_heartbeating()
-                    
+
                     if ready_to_read:
                         self._try_receive_data()
 
@@ -127,7 +129,7 @@ class BaseConnection:
         [ready_readers, ready_writers, ready_exc] = select.select(readers, writers, exceptionals, timeout_seconds)
         if len(ready_exc) > 0:
             raise ConnectionError("Socket is in an exceptional state")
-        
+
         return [len(ready_readers) > 0, len(ready_writers) > 0]
 
     def _do_heartbeating(self):
@@ -194,32 +196,31 @@ class WebServerSide(BaseConnection):
         self.srv_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.srv_socket.bind((ip, port))
         self.srv_socket.listen()
-        
+
         self.socket = None
-        
+
         super().__init__(ip, port)
 
     def is_recording(self):
-        request = { REQUEST_KEY: "is_recording" }
+        request = {REQUEST_KEY: "is_recording"}
         response = self._send_request_receive_response(request, "json")
         return response["value"]
 
     def start_recording(self):
-        request = { REQUEST_KEY: "start_recording" }
+        request = {REQUEST_KEY: "start_recording"}
         response = self._send_request_receive_response(request, "json")
         return response["value"]
-        
+
     def stop_recording(self):
-        request = { REQUEST_KEY: "stop_recording" }
+        request = {REQUEST_KEY: "stop_recording"}
         response = self._send_request_receive_response(request, "json")
         return response["value"]
 
     def current_frame_base64(self, format):
-        request = { REQUEST_KEY: "current_frame_base64", "format": format }
+        request = {REQUEST_KEY: "current_frame_base64", "format": format}
         response = self._send_request_receive_response(request, "json")
         return response["value"]
 
-        
     def _connect_or_accept(self, ip, port):
         logging.info("Waiting for connection...")
         self.srv_socket.settimeout(1)
@@ -235,15 +236,16 @@ class WebServerSide(BaseConnection):
                 break
             except socket.timeout:
                 pass
-        
+
     def _stop(self):
         self.srv_socket.close()
+
 
 class CameraClientSide(BaseConnection):
     def __init__(self, camera_manager, ip, port):
         self.socket = None
         self.camera_manager = camera_manager
-        
+
         super().__init__(ip, port)
 
     def _connect_or_accept(self, ip, port):
@@ -284,13 +286,13 @@ class CameraClientSide(BaseConnection):
         # logging.debug("Recieved: " + req)
 
         if req == "is_recording":
-            return { "value": self.camera_manager.is_recording() }
+            return {"value": self.camera_manager.is_recording()}
         elif req == "start_recording":
             self.camera_manager.start_recording()
-            return { "value": True }
+            return {"value": True}
         elif req == "stop_recording":
             self.camera_manager.stop_recording()
-            return { "value": True }
+            return {"value": True}
         elif req == "current_frame_base64":
             format = message["format"]
-            return { "value": self.camera_manager.current_frame_base64(format) }
+            return {"value": self.camera_manager.current_frame_base64(format)}

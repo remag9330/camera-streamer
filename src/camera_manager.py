@@ -10,6 +10,7 @@ from recorder import Recorder
 
 import settings
 
+
 def _create_cameras():
     cameras = []
 
@@ -28,10 +29,13 @@ def _create_cameras():
 
     return _merge_cameras(cameras)
 
+
 def _merge_cameras(cameras):
     return CurrentTimeCamera(GridCamera(cameras))
 
+
 camera = _create_cameras()
+
 
 def _camera_reader(pipe):
     running = True
@@ -40,7 +44,7 @@ def _camera_reader(pipe):
 
     while running:
         camera.update_frame()
-        
+
         current_time = time.time()
         time_since_start = current_time - start_time
         sleep_time = seconds_per_frame - (time_since_start % seconds_per_frame)
@@ -52,10 +56,11 @@ def _camera_reader(pipe):
             if isinstance(msg, str) and msg == "terminate":
                 running = False
 
+
 def start_reader(pipe):
     logging.info("Starting cameras")
     try:
-        _camera_reader(pipe) # Blocks until shutdown
+        _camera_reader(pipe)  # Blocks until shutdown
     except KeyboardInterrupt:
         pass
     logging.info("Cameras stopping, cleaning up")
@@ -65,6 +70,7 @@ def start_reader(pipe):
 
 
 _recorder = None
+
 
 def start_recording():
     global _recorder
@@ -79,12 +85,14 @@ def start_recording():
     _recorder.start_recording()
     logging.info("Recording started")
 
+
 def stop_recording():
     global _recorder
     _recorder.stop_recording()
     _recorder.release()
     _recorder = None
     logging.info("Recording ended")
+
 
 def is_recording():
     return _recorder is not None
@@ -98,7 +106,7 @@ def current_frame_base64(format):
     success, buf = cv2.imencode(format, frame)
     if not success:
         return None
-    
+
     return base64.b64encode(buf).decode("utf-8")
 
 
@@ -109,6 +117,7 @@ def release_cameras():
     global camera
     camera.release()
     camera = None
+
 
 # This only needs to be called if release_cameras is called prior - a camera will be created initially on module load
 def create_cameras():

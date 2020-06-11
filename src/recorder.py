@@ -65,14 +65,16 @@ class Recorder:
                         os.remove(out_filename)
             finally:
                 self.combining_threads.remove(thread)
-            
+
         thread = threading.Thread(target=func, name="Combine AV Background")
         self.combining_threads.append(thread)
 
         thread.start()
 
+
 VIDEO_FORMAT = "MJPG"
 VIDEO_SUFFIX = "-video"
+
 
 class VideoRecorder:
     def __init__(self, camera, frame_written_callback=None):
@@ -104,7 +106,7 @@ class VideoRecorder:
     def stop_recording(self):
         with self.out_file.acquire() as lock:
             return self._stop_recording(lock)
-    
+
     def _stop_recording(self, lock):
         filename = ""
 
@@ -141,12 +143,13 @@ class VideoRecorder:
                 self.write_frame(frame)
                 if self.frame_written_callback is not None:
                     self.frame_written_callback()
-            
+
             current_time = time.time()
             time_since_start = current_time - start_time
             sleep_time = seconds_per_frame - (time_since_start % seconds_per_frame)
             if sleep_time > 0:
                 time.sleep(sleep_time)
+
 
 WIDTH = 2
 CHANNELS = 1
@@ -154,11 +157,12 @@ RATE = 44100
 AUDIO_FORMAT = pyaudio.paInt16 if settings.RECORD_AUDIO else 0
 AUDIO_SUFFIX = "-audio"
 
+
 class AudioRecorder:
     def __init__(self):
         self.pyaudio = pyaudio.PyAudio()
         self.outfile = Mutex(None)
-        
+
         self.stream = self.pyaudio.open(
             format=self.pyaudio.get_format_from_width(WIDTH),
             channels=CHANNELS,
@@ -182,7 +186,7 @@ class AudioRecorder:
         with self.outfile.acquire() as lock:
             if lock.value is None:
                 return ""
-            
+
             filename = lock.value._file.name
             lock.value.close()
             lock.value = None
@@ -206,11 +210,13 @@ class AudioRecorder:
 
         return (None, pyaudio.paContinue)
 
+
 def parts_filename(suffix, extension):
     return os.path.join(
         settings.RECORDINGS_DIRECTORY,
         settings.RECORDINGS_PARTS_SUBDIR_NAME,
         time.strftime(settings.RECORDINGS_FILENAME_FORMAT) + suffix + extension)
+
 
 def combined_filename_from_video_filename(filename):
     (path, ext) = os.path.splitext(filename)

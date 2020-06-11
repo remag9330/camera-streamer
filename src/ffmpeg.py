@@ -5,18 +5,19 @@ import tempfile
 
 FFMPEG_EXE = "./ffmpeg.exe"
 
+
 def combine_video_audio(video_filename, audio_filename, out_filename):
     logging.info(f"combining {video_filename} {audio_filename} into {out_filename}")
     args = [FFMPEG_EXE,
-        "-hide_banner",
-        "-loglevel", "panic",
-        "-nostats",
-        "-i", video_filename,
-        "-i", audio_filename,
-        "-c:v", "copy",
-        "-c:a", "aac",
-        out_filename
-    ]
+            "-hide_banner",
+            "-loglevel", "panic",
+            "-nostats",
+            "-i", video_filename,
+            "-i", audio_filename,
+            "-c:v", "copy",
+            "-c:a", "aac",
+            out_filename
+            ]
 
     pipes = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     (stdout, stderr) = pipes.communicate()
@@ -29,6 +30,7 @@ def combine_video_audio(video_filename, audio_filename, out_filename):
         logging.error(f"combine failed - status code: {pipes.returncode} - stdout: '{stdout}' - stderr: '{stderr}'")
 
     return success
+
 
 def append_videos(full, end):
     logging.info(f"appending video {end} to {full}")
@@ -46,15 +48,15 @@ def append_videos(full, end):
         temp_file_name = files_to_combine_file.name
 
     args = [FFMPEG_EXE,
-        "-hide_banner",
-        # "-loglevel", "panic",
-        "-nostats",
-        "-f", "concat",
-        "-safe", "0",
-        "-i", temp_file_name,
-        "-c", "copy",
-        full
-    ]
+            "-hide_banner",
+            # "-loglevel", "panic",
+            "-nostats",
+            "-f", "concat",
+            "-safe", "0",
+            "-i", temp_file_name,
+            "-c", "copy",
+            full
+            ]
 
     try:
         pipes = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -62,7 +64,7 @@ def append_videos(full, end):
     finally:
         try:
             os.remove(temp_file_name)
-        except ex:
+        except Exception:
             logging.warn("Could not delete temp file %s", temp_file_name)
 
     os.remove(start)

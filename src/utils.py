@@ -1,6 +1,7 @@
 import threading
 # import inspect
 
+
 class Mutex:
     def __init__(self, intial_value=None):
         self._value = intial_value
@@ -20,7 +21,7 @@ class Mutex:
         @value.setter
         def value(self, value):
             self.mutex._value = value
-        
+
         def __enter__(self):
             # curframe = inspect.currentframe()
             # calframe = inspect.getouterframes(curframe, 2)

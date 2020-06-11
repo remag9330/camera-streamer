@@ -6,6 +6,7 @@ import logging
 import cv2
 import numpy as np
 
+
 class Camera:
     def __init__(self, camera_id, width, height):
         self.camera_id = camera_id
@@ -19,7 +20,7 @@ class Camera:
 
         if self.height > 0:
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        
+
         frame_width = self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)
         frame_height = self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
         fps = self.camera.get(cv2.CAP_PROP_FPS)
@@ -27,13 +28,14 @@ class Camera:
             logging.info(f"camera {self.camera_id} - width: {frame_width}, height: {frame_height}, fps: {fps}")
 
         self.update_frame()
-    
+
     def update_frame(self):
         success, data = self.camera.read()
         self.current_frame = data if success else None
 
     def release(self):
         self.camera.release()
+
 
 class MockCamera:
     def __init__(self, camera_id, width, height):
@@ -49,7 +51,7 @@ class MockCamera:
     def update_frame(self):
         new_frame = np.array(self.blank_frame)
         self.frame_count += 1
-        
+
         cv2.putText(
             new_frame,
             str(self.camera_id) + " - " + str(self.frame_count),
@@ -65,11 +67,13 @@ class MockCamera:
     def release(self):
         pass
 
+
 class CurrentTimeCamera:
     _id = 0
 
     def __init__(self, camera):
-        if camera is None: raise Exception("No camera supplied")
+        if camera is None:
+            raise Exception("No camera supplied")
 
         self.camera_id = "CurrentTime-" + str(CurrentTimeCamera._id)
         CurrentTimeCamera._id += 1
@@ -108,13 +112,15 @@ class CurrentTimeCamera:
 
     @staticmethod
     def _determine_status_bar_height():
-        return 50 # TODO Make better?
+        return 50  # TODO Make better?
+
 
 class GridCamera:
     _id = 0
 
     def __init__(self, cameras):
-        if len(cameras) == 0: raise Exception("Must be at least 1 camera to record from")
+        if len(cameras) == 0:
+            raise Exception("Must be at least 1 camera to record from")
 
         self.camera_id = "GridCamera-" + str(GridCamera._id)
         GridCamera._id += 1
@@ -147,7 +153,7 @@ class GridCamera:
         rowImage = row[0].current_frame
         for cam in row[1:]:
             rowImage = cv2.hconcat([rowImage, cam.current_frame])
-        
+
         # Ensure the row is as wide as the whole image by adding some black space on the right
         if fullWidth is not None and rowImage.shape[1] != fullWidth:
             blank_space = np.zeros((rowImage.shape[0], fullWidth - rowImage.shape[1], 3), np.uint8)
@@ -172,7 +178,7 @@ class GridCamera:
 
         if len(row) > 0:
             grid.append(row)
-        
+
         return grid
 
     def _determine_size(self):
@@ -183,7 +189,7 @@ class GridCamera:
             rowWidth, rowHeight = self._determine_row_size(row)
             width = max(width, rowWidth)
             height += rowHeight
-        
+
         return (width, height)
 
     @staticmethod

@@ -1,9 +1,7 @@
-import base64
 import threading
-import sys
 import logging
 
-from bottle import route, view, static_file, request, run, abort, install, ServerAdapter
+from bottle import route, view, static_file, request, run, ServerAdapter
 
 
 def start_server(pipe, cam_comm):
@@ -15,13 +13,16 @@ def start_server(pipe, cam_comm):
     t.join()
     logging.info("Server terminated.")
 
+
 def start_listening():
     run(server=server)
+
 
 def start_stopper_listener(pipe):
     t = threading.Thread(target=_stopper_listener, args=(pipe,), name="Webserver Stopper Listener")
     t.start()
     return t
+
 
 def _stopper_listener(pipe):
     while True:
@@ -30,6 +31,7 @@ def _stopper_listener(pipe):
             logging.info("Received terminate command - stopping")
             server.stop()
             break
+
 
 def setup(cam_comm):
     @route("/")
@@ -45,7 +47,7 @@ def setup(cam_comm):
         format = request.query.format or ".jpg"
         if format[0] != ".":
             format = "." + format
-        
+
         mime_types = {
             ".jpg": "image/jpeg",
             ".png": "image/png"
@@ -56,9 +58,9 @@ def setup(cam_comm):
 
         frame = cam_comm.current_frame_base64(format)
         if frame is None:
-            return { "image": None }
+            return {"image": None}
 
-        return { "image": "data:" + mime_types[format] + ";base64, " + frame }
+        return {"image": "data:" + mime_types[format] + ";base64, " + frame}
 
     @route("/recording/start")
     def start_recording():
@@ -74,22 +76,23 @@ def setup(cam_comm):
 
 
 class MyWSGIRefServer(ServerAdapter):
-    def run(self, app): # pragma: no cover
+    def run(self, app):  # pragma: no cover
         from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
         from wsgiref.simple_server import make_server
         import socket
 
         class FixedHandler(WSGIRequestHandler):
-            def address_string(self): # Prevent reverse DNS lookups please.
+            def address_string(self):  # Prevent reverse DNS lookups please.
                 return self.client_address[0]
+
             def log_request(*args, **kw):
                 if not self.quiet:
                     return WSGIRequestHandler.log_request(*args, **kw)
 
         handler_cls = self.options.get('handler_class', FixedHandler)
-        server_cls  = self.options.get('server_class', WSGIServer)
+        server_cls = self.options.get('server_class', WSGIServer)
 
-        if ':' in self.host: # Fix wsgiref for IPv6 addresses.
+        if ':' in self.host:  # Fix wsgiref for IPv6 addresses.
             if getattr(server_cls, 'address_family') == socket.AF_INET:
                 class server_cls(server_cls):
                     address_family = socket.AF_INET6

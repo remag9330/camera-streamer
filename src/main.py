@@ -22,11 +22,14 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ])
 
+
 def custom_except_hook(exc_type, exc_obj, tb):
     text = "\t".join(traceback.format_exception(exc_type, exc_obj, tb))
     logging.critical(text)
 
+
 sys.excepthook = custom_except_hook
+
 
 def start_cameras(pipe):
     import camera_manager
@@ -41,6 +44,7 @@ def start_cameras(pipe):
     logging.info("Stopping camera IPC")
     comm.stop()
     logging.info("Camera process finished successfully")
+
 
 def start_webserver(pipe):
     import webserver
@@ -62,6 +66,7 @@ def start_process(func, name):
     p = multiprocessing.Process(target=func, args=(c_conn,), name=name)
     p.start()
     return [p, p_conn]
+
 
 def main():
     processes = []
@@ -93,6 +98,7 @@ def main():
     for [p, _] in processes:
         p.join()
     logging.info("Processes exited - Application shutdown successful")
+
 
 if __name__ == "__main__":
     main()
