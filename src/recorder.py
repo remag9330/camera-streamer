@@ -1,4 +1,5 @@
 import os
+import shutil
 import time
 import wave
 import threading
@@ -59,10 +60,15 @@ class Recorder:
                     os.remove(audio_filename)
 
                 if self.full_video_name is None:
-                    self.full_video_name = out_filename
+                    self.full_video_name = main_filename_from_video_filename(video_filename)
+                    if settings.RECORDINGS_KEEP_PARTS:
+                        shutil.copyfile(out_filename, self.full_video_name)
+                    else:
+                        os.rename(out_filename, self.full_video_name)
                 else:
                     if ffmpeg.append_videos(self.full_video_name, out_filename):
-                        os.remove(out_filename)
+                        if not settings.RECORDINGS_KEEP_PARTS:
+                            os.remove(out_filename)
             finally:
                 self.combining_threads.remove(thread)
 
@@ -219,6 +225,17 @@ def parts_filename(suffix, extension):
 
 
 def combined_filename_from_video_filename(filename):
+    (path, ext) = os.path.splitext(filename)
+    filename = os.path.split(path)[1].replace(VIDEO_SUFFIX, "")
+
+    return os.path.join(
+        settings.RECORDINGS_DIRECTORY,
+        settings.RECORDINGS_PARTS_SUBDIR_NAME,
+        filename + ext
+    )
+
+
+def main_filename_from_video_filename(filename):
     (path, ext) = os.path.splitext(filename)
     filename = os.path.split(path)[1].replace(VIDEO_SUFFIX, "")
 
