@@ -3,6 +3,8 @@ import logging
 
 from bottle import route, view, static_file, request, run, ServerAdapter
 
+import settings
+
 
 def start_server(pipe, cam_comm):
     setup(cam_comm)
@@ -105,6 +107,6 @@ class MyWSGIRefServer(ServerAdapter):
         self.server.shutdown()
 
 
-server = MyWSGIRefServer(host="0.0.0.0", port=8080)
+server = MyWSGIRefServer(host="0.0.0.0", port=settings.WEBSERVER_PORT)
 server.quiet = True
 server.debug = True

@@ -20,6 +20,8 @@ MOCK_CAMERA_COUNT = 4
 RUN_CAMERAS = True
 RUN_WEBSERVER = True
 
+WEBSERVER_PORT = 8080
+
 # -- Interprocess communication data -- #
 # The IP for the socket in the camera process to connect to
 CONNECT_TO_IP = "localhost"
