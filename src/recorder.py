@@ -1,8 +1,8 @@
 import os
-import shutil
 import time
 import wave
 import threading
+import logging
 
 import cv2
 
@@ -19,9 +19,8 @@ class Recorder:
         self.video = VideoRecorder(camera, self.video_frame_written)
         self.audio = AudioRecorder()
 
-        self.full_video_name = None
-
         self.combining_threads = []
+        self.combined_segments = []
 
         self.frame_count = 0
 
@@ -31,44 +30,56 @@ class Recorder:
 
         self.frame_count = 0
 
-    def stop_recording(self):
+    def stop_recording(self, stitch_everything_together=True):
         video_filename = self.video.stop_recording()
         audio_filename = self.audio.stop_recording()
-        self.combine_video_audio_background(video_filename, audio_filename)
+        self.combine_video_audio_background(video_filename, audio_filename, stitch_everything_together)
+
+    def stitch_together_segments(self):
+        if len(self.combined_segments) == 0:
+            return
+
+        # Expecting 1 thread as this can be called from that thread, so don't deadlock waiting for yourself to finish.
+        if len(self.combining_threads) > 1:
+            logging.info("Waiting for combining threads to finish...")
+            while len(self.combining_threads) > 1:
+                time.sleep(0.2)
+
+        out_filename = main_filename_from_video_filename(self.combined_segments[0])
+        if not ffmpeg.append_videos(out_filename, self.combined_segments):
+            return
+
+        if not settings.RECORDINGS_KEEP_PARTS:
+            for f in self.combined_segments:
+                os.remove(f)
 
     def video_frame_written(self):
         if settings.RECORDINGS_FRAMES_PER_FILE > 0:
             self.frame_count += 1
 
             if self.frame_count >= settings.RECORDINGS_FRAMES_PER_FILE:
-                self.stop_recording()
+                self.stop_recording(stitch_everything_together=False)
                 self.start_recording()
 
     def release(self):
         self.video.release()
         self.audio.release()
 
-    def combine_video_audio_background(self, video_filename, audio_filename):
+    def combine_video_audio_background(self, video_filename, audio_filename, stitch_everything_together):
         def func():
             try:
                 out_filename = combined_filename_from_video_filename(video_filename)
                 if not ffmpeg.combine_video_audio(video_filename, audio_filename, out_filename):
                     return
 
+                self.combined_segments.append(out_filename)
+
                 if not settings.RECORDINGS_KEEP_PARTS:
                     os.remove(video_filename)
                     os.remove(audio_filename)
 
-                if self.full_video_name is None:
-                    self.full_video_name = main_filename_from_video_filename(video_filename)
-                    if settings.RECORDINGS_KEEP_PARTS:
-                        shutil.copyfile(out_filename, self.full_video_name)
-                    else:
-                        os.rename(out_filename, self.full_video_name)
-                else:
-                    if ffmpeg.append_videos(self.full_video_name, out_filename):
-                        if not settings.RECORDINGS_KEEP_PARTS:
-                            os.remove(out_filename)
+                if stitch_everything_together:
+                    self.stitch_together_segments()
             finally:
                 self.combining_threads.remove(thread)
 

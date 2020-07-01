@@ -32,18 +32,12 @@ def combine_video_audio(video_filename, audio_filename, out_filename):
     return success
 
 
-def append_videos(full, end):
-    logging.info(f"appending video {end} to {full}")
-
-    (full_path, full_name) = os.path.split(full)
-    start = os.path.join(full_path, "t-" + full_name)
-    os.rename(full, start)
-
+def append_videos(output_file, filenames):
+    logging.info(f"appending video files '{', '.join(filenames)}' to '{output_file}'")
+    
+    file_content = "\n".join([f"file '{f}'" for f in filenames])
     with tempfile.NamedTemporaryFile(delete=False) as files_to_combine_file:
-        files_to_combine_file.write("\n".join([
-            f"file '{start}'",
-            f"file '{end}'"
-        ]).encode("utf-8"))
+        files_to_combine_file.write(file_content.encode("utf-8"))
 
         temp_file_name = files_to_combine_file.name
 
@@ -55,7 +49,7 @@ def append_videos(full, end):
             "-safe", "0",
             "-i", temp_file_name,
             "-c", "copy",
-            full
+            output_file
             ]
 
     try:
@@ -67,7 +61,6 @@ def append_videos(full, end):
         except Exception:
             logging.warn("Could not delete temp file %s", temp_file_name)
 
-    os.remove(start)
     success = pipes.returncode == 0
 
     if success:
