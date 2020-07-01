@@ -34,7 +34,7 @@ def combine_video_audio(video_filename, audio_filename, out_filename):
 
 def append_videos(output_file, filenames):
     logging.info(f"appending video files '{', '.join(filenames)}' to '{output_file}'")
-    
+
     file_content = "\n".join([f"file '{f}'" for f in filenames])
     with tempfile.NamedTemporaryFile(delete=False) as files_to_combine_file:
         files_to_combine_file.write(file_content.encode("utf-8"))
