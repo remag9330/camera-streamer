@@ -20,66 +20,79 @@ class Recorder:
         self.audio = AudioRecorder()
 
         self.combining_threads = []
-        self.combined_segments = []
+        self.all_combined_segments = []
+        self.recording_combined_segments = []
 
+        self.recording = False
         self.frame_count = 0
 
-    def start_recording(self):
         self.video.start_recording()
         self.audio.start_recording()
 
-        self.frame_count = 0
+    def start_recording(self):
+        self.recording = True
 
-    def stop_recording(self, stitch_everything_together=True):
-        video_filename = self.video.stop_recording()
-        audio_filename = self.audio.stop_recording()
-        self.combine_video_audio_background(video_filename, audio_filename, stitch_everything_together)
+    def stop_recording(self):
+        self.recording = False
+        self.stitch_together_segments()
+        self.recording_combined_segments = []
+
+    def is_recording(self):
+        return self.recording
 
     def stitch_together_segments(self):
-        if len(self.combined_segments) == 0:
+        if len(self.recording_combined_segments) == 0:
             return
 
-        # Expecting 1 thread as this can be called from that thread, so don't deadlock waiting for yourself to finish.
-        if len(self.combining_threads) > 1:
-            logging.info("Waiting for combining threads to finish...")
-            while len(self.combining_threads) > 1:
-                time.sleep(0.2)
+        try:
+            if len(self.combining_threads) > 0:
+                self.combining_threads[0].join()
+        except Exception as ex:
+            logging.warn("Error while waiting for single combining thread:\n%s", ex)
 
-        out_filename = main_filename_from_video_filename(self.combined_segments[0])
-        if not ffmpeg.append_videos(out_filename, self.combined_segments):
+        out_filename = main_filename_from_video_filename(self.recording_combined_segments[0])
+        if not ffmpeg.append_videos(out_filename, self.recording_combined_segments):
             return
 
         if not settings.RECORDINGS_KEEP_PARTS:
-            for f in self.combined_segments:
+            for f in self.recording_combined_segments:
                 os.remove(f)
 
     def video_frame_written(self):
-        if settings.RECORDINGS_FRAMES_PER_FILE > 0:
-            self.frame_count += 1
+        if settings.RECORDINGS_FRAMES_PER_FILE < 0:
+            return
 
-            if self.frame_count >= settings.RECORDINGS_FRAMES_PER_FILE:
-                self.stop_recording(stitch_everything_together=False)
-                self.start_recording()
+        self.frame_count += 1
+
+        if self.frame_count >= settings.RECORDINGS_FRAMES_PER_FILE:
+            self.frame_count = 0
+            v_file = self.video.stop_recording()
+            a_file = self.audio.stop_recording()
+            self.video.start_recording()
+            self.audio.start_recording()
+
+            self.combine_video_audio_background(v_file, a_file)
 
     def release(self):
+        logging.info("Releasing recorder...")
         self.video.release()
         self.audio.release()
+        logging.info("Recorder released")
 
-    def combine_video_audio_background(self, video_filename, audio_filename, stitch_everything_together):
+    def combine_video_audio_background(self, video_filename, audio_filename):
         def func():
             try:
                 out_filename = combined_filename_from_video_filename(video_filename)
                 if not ffmpeg.combine_video_audio(video_filename, audio_filename, out_filename):
                     return
 
-                self.combined_segments.append(out_filename)
+                self.all_combined_segments.append(out_filename)
+                if self.recording:
+                    self.recording_combined_segments.append(out_filename)
 
                 if not settings.RECORDINGS_KEEP_PARTS:
                     os.remove(video_filename)
                     os.remove(audio_filename)
-
-                if stitch_everything_together:
-                    self.stitch_together_segments()
             finally:
                 self.combining_threads.remove(thread)
 
@@ -89,7 +102,7 @@ class Recorder:
         thread.start()
 
 
-VIDEO_FORMAT = "MJPG"
+VIDEO_FORMAT = "mp4v"
 VIDEO_SUFFIX = "-video"
 
 
@@ -143,9 +156,11 @@ class VideoRecorder:
             lock.value.write(frame)
 
     def release(self):
+        logging.info("Releasing video recorder...")
         self.stop_recording()
         self._background_reader_running = False
         self.background_thread.join()
+        logging.info("Video recorder released")
 
     def _determine_fps(self):
         return settings.CAMERA_FPS
@@ -211,6 +226,7 @@ class AudioRecorder:
             return filename
 
     def release(self):
+        logging.info("Releasing audio recorder...")
         self.stop_recording()
 
         self.stream.stop_stream()
@@ -219,6 +235,7 @@ class AudioRecorder:
 
         self.pyaudio.terminate()
         self.pyaudio = None
+        logging.info("Audio recorder released")
 
     def audio_callback(self, in_data, frame_count, time_info, status):
         with self.outfile.acquire() as lock:

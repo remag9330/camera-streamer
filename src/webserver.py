@@ -1,7 +1,8 @@
+import base64
 import threading
 import logging
 
-from bottle import route, view, static_file, request, run, ServerAdapter
+from bottle import route, view, static_file, run, ServerAdapter, response
 
 import settings
 
@@ -41,28 +42,15 @@ def setup(cam_comm):
     def main():
         return {
             "isRecording": cam_comm.is_recording(),
-            "initialImage": frame()["image"]
+            "segmentLengthSeconds": settings.RECORDINGS_FRAMES_PER_FILE / settings.CAMERA_FPS
         }
 
-    @route("/frame")
-    def frame():
-        format = request.query.format or ".jpg"
-        if format[0] != ".":
-            format = "." + format
-
-        mime_types = {
-            ".jpg": "image/jpeg",
-            ".png": "image/png"
-        }
-
-        if format not in mime_types:
-            format = ".jpg"
-
-        frame = cam_comm.current_frame_base64(format)
-        if frame is None:
-            return {"image": None}
-
-        return {"image": "data:" + mime_types[format] + ";base64, " + frame}
+    @route("/segment")
+    def segment():
+        (filename, enc_segment) = cam_comm.segment()
+        segment = base64.b64decode(enc_segment.encode("utf-8"))
+        response.set_header("X-segment-name", filename)
+        return segment
 
     @route("/recording/start")
     def start_recording():

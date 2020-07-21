@@ -216,10 +216,10 @@ class WebServerSide(BaseConnection):
         response = self._send_request_receive_response(request, "json")
         return response["value"]
 
-    def current_frame_base64(self, format):
-        request = {REQUEST_KEY: "current_frame_base64", "format": format}
+    def segment(self):
+        request = {REQUEST_KEY: "segment"}
         response = self._send_request_receive_response(request, "json")
-        return response["value"]
+        return (response["filename"], response["value"])
 
     def _connect_or_accept(self, ip, port):
         logging.info("Waiting for connection...")
@@ -293,6 +293,6 @@ class CameraClientSide(BaseConnection):
         elif req == "stop_recording":
             self.camera_manager.stop_recording()
             return {"value": True}
-        elif req == "current_frame_base64":
-            format = message["format"]
-            return {"value": self.camera_manager.current_frame_base64(format)}
+        elif req == "segment":
+            (filename, data) = self.camera_manager.segment()
+            return {"value": data, "filename": filename}

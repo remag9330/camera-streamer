@@ -3,8 +3,6 @@ import time
 import os
 import logging
 
-import cv2
-
 from camera import Camera, MockCamera, GridCamera, CurrentTimeCamera
 from recorder import Recorder
 
@@ -58,6 +56,8 @@ def _camera_reader(pipe):
 
 
 def start_reader(pipe):
+    global _recorder
+
     logging.info("Starting cameras")
     try:
         _camera_reader(pipe)  # Blocks until shutdown
@@ -68,46 +68,50 @@ def start_reader(pipe):
     release_cameras()
     logging.info("Cameras cleaned up")
 
+    _recorder.release()
+    _recorder = None
 
-_recorder = None
+
+def _create_recorder():
+    if not os.path.exists(settings.RECORDINGS_DIRECTORY):
+        os.mkdir(settings.RECORDINGS_DIRECTORY)
+
+    parts_dir = os.path.join(settings.RECORDINGS_DIRECTORY, settings.RECORDINGS_PARTS_SUBDIR_NAME)
+    if not os.path.exists(parts_dir):
+        os.mkdir(parts_dir)
+
+    return Recorder(camera)
+
+
+_recorder = _create_recorder()
 
 
 def start_recording():
     global _recorder
 
-    if not os.path.exists(settings.RECORDINGS_DIRECTORY):
-        os.mkdir(settings.RECORDINGS_DIRECTORY)
-    parts_dir = os.path.join(settings.RECORDINGS_DIRECTORY, settings.RECORDINGS_PARTS_SUBDIR_NAME)
-    if not os.path.exists(parts_dir):
-        os.mkdir(parts_dir)
-
-    _recorder = Recorder(camera)
     _recorder.start_recording()
     logging.info("Recording started")
 
 
 def stop_recording():
     global _recorder
+
     _recorder.stop_recording()
-    _recorder.release()
-    _recorder = None
     logging.info("Recording ended")
 
 
 def is_recording():
-    return _recorder is not None
+    return _recorder.is_recording()
 
 
-def current_frame_base64(format):
-    frame = camera.current_frame
-    if frame is None:
-        return None
+def segment():
+    if len(_recorder.all_combined_segments) < 1:
+        return ("", None)
 
-    success, buf = cv2.imencode(format, frame)
-    if not success:
-        return None
-
-    return base64.b64encode(buf).decode("utf-8")
+    filename = _recorder.all_combined_segments[-1]
+    with open(filename, "rb") as f:
+        buf = f.read()
+    return (os.path.split(filename)[1], base64.b64encode(buf).decode("utf-8"))
 
 
 def release_cameras():

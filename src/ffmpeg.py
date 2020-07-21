@@ -7,15 +7,17 @@ FFMPEG_EXE = "./ffmpeg.exe"
 
 
 def combine_video_audio(video_filename, audio_filename, out_filename):
-    logging.info(f"combining {video_filename} {audio_filename} into {out_filename}")
+    logging.debug(f"combining {video_filename} {audio_filename} into {out_filename}")
     args = [FFMPEG_EXE,
             "-hide_banner",
             "-loglevel", "panic",
             "-nostats",
             "-i", video_filename,
             "-i", audio_filename,
-            "-c:v", "copy",
+            "-c:v", "h264",
             "-c:a", "aac",
+            "-movflags", "empty_moov+default_base_moof+frag_keyframe",
+            "-profile:v", "baseline",
             out_filename
             ]
 
@@ -25,7 +27,7 @@ def combine_video_audio(video_filename, audio_filename, out_filename):
     success = pipes.returncode == 0
 
     if success:
-        logging.info("combine completed successfully")
+        logging.debug("combine completed successfully")
     else:
         logging.error(f"combine failed - status code: {pipes.returncode} - stdout: '{stdout}' - stderr: '{stderr}'")
 

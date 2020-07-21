@@ -13,10 +13,10 @@ import interprocess_communication as ipc
 os.chdir(os.path.dirname(os.path.realpath(__file__)))
 
 format = "%(levelname)s:%(processName)s:%(process)d:%(threadName)s:%(thread)d:%(name)s:%(asctime)s\n\t%(message)s"
-level = logging.DEBUG
+min_level = logging.INFO  # DEBUG
 logging.basicConfig(
     format=format,
-    level=level,
+    level=min_level,
     handlers=[
         logging.FileHandler("logs.txt"),
         logging.StreamHandler(sys.stdout)

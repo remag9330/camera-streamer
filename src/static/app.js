@@ -1,56 +1,12 @@
 // @ts-check
 
+/** @type number */
+var segmentLengthSeconds = window["segmentLengthSeconds"];
+
 window.addEventListener("load", () => {
-    let fps = +localStorage.getItem("fps") || 10;
-
-    document.body.querySelectorAll(".camera").forEach((e, id) => {
-        /** @type {HTMLImageElement} */
-        const frame = e.querySelector(".frame");
-
-        async function getFrame() {
-            const start = Date.now();
-
-            try {
-                const response = await fetch(`frame`);
-                /** @type {{ image: string | null }} */
-                const data = await response.json();
-                if (data.image) {
-                    frame.src = data.image;
-                } else {
-                    console.warn("could not get image");
-                }
-            } catch (ex) {
-                console.error("Could not get frame", ex);
-            }
-
-            const end = Date.now();
-            const sleepTime = 1000 / fps - (end - start);
-            setTimeout(getFrame, Math.max(sleepTime, 0));
-        }
-
-        getFrame();
-
-        emitter.on("fpsChanged", (/** @type {{ fps: number }} */e) => {
-            fps = e.fps;
-        });
-    });
-
-    const selector = document.getElementById("fpsSelector");
-    if (!(selector instanceof HTMLSelectElement)) {
-        throw new Error("fpsSelector is not a select!");
-    }
-
-    selector.value = fps.toString();
-
-    selector.addEventListener("input", e => {
-        const newFps = selector.value;
-        localStorage.setItem("fps", newFps);
-        emitter.emit("fpsChanged", { fps: newFps });
-    });
-
     const toggleRecording = document.getElementById("toggleRecording");
     if (!(toggleRecording instanceof HTMLButtonElement)) {
-        throw new Error("toggleRedcording is not a button!");
+        throw new Error("toggleRecording is not a button!");
     }
 
     toggleRecording.addEventListener("click", async e => {
@@ -66,29 +22,47 @@ window.addEventListener("load", () => {
             toggleRecording.innerHTML = (isStarting ? "Stop" : "Start") + " Recording";
         }
     });
+
+    const video = document.getElementById("camera");
+    if (!(video instanceof HTMLVideoElement)) {
+        throw new Error("#camera is not a video!");
+    }
+
+    const ms = new MediaSource();
+    const url = URL.createObjectURL(ms);
+    video.src = url;
+
+    ms.addEventListener("sourceopen", async() => {
+        const sb = ms.addSourceBuffer('video/mp4; codecs="avc1.640016, mp4a.40.2"');
+        sb.addEventListener("updateend", () => sb.timestampOffset += segmentLengthSeconds);
+
+        let lastReceivedSegment = "";
+
+        async function appendSegment() {
+            const res = await fetch("segment");
+            
+            const segName = res.headers.get("X-segment-name");
+            if (lastReceivedSegment === segName) {
+                return false;
+            }
+            lastReceivedSegment = segName;
+
+            const buf = await res.arrayBuffer();
+            sb.appendBuffer(buf);
+            return true;
+        }
+
+        while (true) {
+            const newSegAppended = await appendSegment();
+            const delayMs = segmentLengthSeconds * (newSegAppended ? 1000 : 100);
+            await delay(delayMs);
+        }
+    });
 });
 
-function Emitter() {
-    /** @type {{ [key: string]: ((e) => void)[] }} */
-    this._listeners = {}
+/**
+ * @param {number} ms 
+ */
+function delay(ms) {
+    return new Promise((res, rej) => setTimeout(res, ms));
 }
-
-Emitter.prototype.on = function(type, func) {
-    if (!(type in this._listeners)) {
-        this._listeners[type] = [];
-    }
-
-    const listeners = this._listeners[type];
-    listeners.push(func);
-}
-
-Emitter.prototype.emit = function(type, event) {
-    const listeners = this._listeners[type];
-    if (!listeners) { return; }
-
-    for (const listener of listeners) {
-        listener(event);
-    }
-}
-
-const emitter = new Emitter();
