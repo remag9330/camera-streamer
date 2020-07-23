@@ -1,3 +1,4 @@
+import base64
 import threading
 import socket
 import time
@@ -216,10 +217,11 @@ class WebServerSide(BaseConnection):
         response = self._send_request_receive_response(request, "json")
         return response["value"]
 
-    def segment(self):
-        request = {REQUEST_KEY: "segment"}
+    def segment(self, last_received):
+        request = {REQUEST_KEY: "segment", "last_received": last_received}
         response = self._send_request_receive_response(request, "json")
-        return (response["filename"], response["value"])
+        buf = base64.b64decode(response["value"].encode("utf-8"))
+        return (response["filename"], buf)
 
     def _connect_or_accept(self, ip, port):
         logging.info("Waiting for connection...")
@@ -294,5 +296,7 @@ class CameraClientSide(BaseConnection):
             self.camera_manager.stop_recording()
             return {"value": True}
         elif req == "segment":
-            (filename, data) = self.camera_manager.segment()
+            last_received = message["last_received"]
+            (filename, buf) = self.camera_manager.segment(last_received)
+            data = base64.b64encode(buf).decode("utf-8")
             return {"value": data, "filename": filename}

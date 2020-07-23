@@ -1,8 +1,7 @@
-import base64
 import threading
 import logging
 
-from bottle import route, view, static_file, run, ServerAdapter, response
+from bottle import route, view, static_file, run, ServerAdapter, request, response
 
 import settings
 
@@ -47,8 +46,8 @@ def setup(cam_comm):
 
     @route("/segment")
     def segment():
-        (filename, enc_segment) = cam_comm.segment()
-        segment = base64.b64decode(enc_segment.encode("utf-8"))
+        last_received = request.get_header("X-last-received-segment")
+        (filename, segment) = cam_comm.segment(last_received)
         response.set_header("X-segment-name", filename)
         return segment
 

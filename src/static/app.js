@@ -39,23 +39,40 @@ window.addEventListener("load", () => {
         let lastReceivedSegment = "";
 
         async function appendSegment() {
-            const res = await fetch("segment");
+            /** @type Record<string, string> */
+            const headers = {};
+            if (lastReceivedSegment) {
+                headers["X-last-received-segment"] = lastReceivedSegment;
+            }
+
+            const res = await fetch("segment", {
+                headers: headers,
+            });
             
             const segName = res.headers.get("X-segment-name");
             if (lastReceivedSegment === segName) {
                 return false;
             }
-            lastReceivedSegment = segName;
 
             const buf = await res.arrayBuffer();
+            if (buf.byteLength === 0) {
+                return false;
+            }
+            
+            lastReceivedSegment = segName;
+
             sb.appendBuffer(buf);
             return true;
         }
 
         while (true) {
-            const newSegAppended = await appendSegment();
-            const delayMs = segmentLengthSeconds * (newSegAppended ? 1000 : 100);
-            await delay(delayMs);
+            const startTime = Date.now();
+            await appendSegment();
+            const endTime = Date.now();
+            const totalTimeTaken = endTime - startTime;
+
+            const delayMs = segmentLengthSeconds * 250;
+            await delay(delayMs - totalTimeTaken);
         }
     });
 });
@@ -64,5 +81,6 @@ window.addEventListener("load", () => {
  * @param {number} ms 
  */
 function delay(ms) {
+    ms = Math.max(ms, 0);
     return new Promise((res, rej) => setTimeout(res, ms));
 }
