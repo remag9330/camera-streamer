@@ -1,4 +1,4 @@
 bottle==0.12.19
 numpy==1.19.3
-opencv-python==4.6.0.66
+opencv-python==4.8.1.78
 PyAudio==0.2.12
